@@ -1,0 +1,699 @@
+// Portfolio Intelligence - Database Schema
+// Based on PRD §13 - Model Data Tingkat Tinggi
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ============================================
+// USER & PREFERENCES
+// ============================================
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  passwordHash  String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  preferences   UserPreference?
+  portfolios    Portfolio[]
+  watchlist     WatchlistItem[]
+  journalEntries JournalEntry[]
+  aiConversations AIConversation[]
+  alertRules    AlertRule[]
+}
+
+model UserPreference {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Investment profile
+  horizon         String   @default("long-term") // short-term, medium-term, long-term
+  riskTolerance   String   @default("moderate")  // conservative, moderate, aggressive
+  benchmark       String   @default("IHSG")      // IHSG, LQ45, sector index
+  
+  // Analysis style
+  analysisStyle   String   @default("balanced")  // fundamental, technical, balanced
+  
+  // Preferences
+  currency        String   @default("IDR")
+  timezone        String   @default("Asia/Jakarta")
+  language        String   @default("id")
+  
+  // Notification preferences
+  emailNotifications Boolean @default(true)
+  quietHoursStart String?  // e.g., "22:00"
+  quietHoursEnd   String?  // e.g., "06:00"
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ============================================
+// PORTFOLIO & ACCOUNTS
+// ============================================
+
+model Portfolio {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name        String
+  description String?
+  broker      String?  // e.g., "Mandiri Sekuritas", "BCA Sekuritas"
+  
+  // Portfolio settings
+  benchmark   String   @default("IHSG")
+  currency    String   @default("IDR")
+  
+  // Calculated values (cached for performance)
+  totalValue      Float    @default(0)
+  totalCost       Float    @default(0)
+  realizedPL      Float    @default(0)
+  unrealizedPL    Float    @default(0)
+  
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  accounts    Account[]
+  positions   Position[]
+  transactions Transaction[]
+}
+
+model Account {
+  id          String   @id @default(cuid())
+  portfolioId String
+  portfolio   Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  
+  // Account info
+  accountNumber String?
+  accountName   String
+  broker        String
+  
+  // Cash balance
+  cashBalance   Float    @default(0)
+  
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  positions     Position[]
+  transactions  Transaction[]
+}
+
+// ============================================
+// SECURITIES (STOCKS)
+// ============================================
+
+model Security {
+  id          String   @id @default(cuid())
+  ticker      String   @unique  // e.g., "BBCA", "BBRI"
+  name        String
+  sector      String
+  industry    String?
+  
+  // Company info
+  description String?
+  website     String?
+  listingDate DateTime?
+  
+  // Current data (cached)
+  lastPrice   Float?
+  lastUpdate  DateTime?
+  
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  positions   Position[]
+  transactions Transaction[]
+  priceBars   PriceBar[]
+  financialStatements FinancialStatement[]
+  financialMetrics FinancialMetric[]
+  newsArticles NewsArticleSecurity[]
+  disclosures Disclosure[]
+  corporateActions CorporateAction[]
+  theses      Thesis[]
+  watchlistItems WatchlistItem[]
+}
+
+// ============================================
+// POSITIONS & TRANSACTIONS
+// ============================================
+
+model Position {
+  id          String   @id @default(cuid())
+  portfolioId String
+  portfolio   Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  
+  accountId   String?
+  account     Account? @relation(fields: [accountId], references: [id])
+  
+  securityId  String
+  security    Security @relation(fields: [securityId], references: [id])
+  
+  // Position data
+  quantity    Float    @default(0)  // in lots
+  averageCost Float    @default(0)
+  totalCost   Float    @default(0)
+  
+  // Current value (cached)
+  currentPrice Float?
+  currentValue Float    @default(0)
+  unrealizedPL Float    @default(0)
+  unrealizedPLPercent Float @default(0)
+  
+  // Realized
+  realizedPL  Float    @default(0)
+  
+  isActive    Boolean  @default(true)
+  openedAt    DateTime @default(now())
+  closedAt    DateTime?
+  updatedAt   DateTime @updatedAt
+  
+  transactions Transaction[]
+  thesis       Thesis?
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  portfolioId String
+  portfolio   Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  
+  accountId   String?
+  account     Account? @relation(fields: [accountId], references: [id])
+  
+  positionId  String?
+  position    Position? @relation(fields: [positionId], references: [id])
+  
+  securityId  String
+  security    Security @relation(fields: [securityId], references: [id])
+  
+  // Transaction details
+  type        String   // BUY, SELL, DIVIDEND, FEE
+  date        DateTime
+  quantity    Float    // in lots
+  price       Float
+  amount      Float    // quantity * price * lot_size
+  
+  // Fees
+  fee         Float    @default(0)
+  tax         Float    @default(0)
+  netAmount   Float
+  
+  // Notes
+  notes       String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ============================================
+// MARKET DATA
+// ============================================
+
+model PriceBar {
+  id          String   @id @default(cuid())
+  securityId  String
+  security    Security @relation(fields: [securityId], references: [id], onDelete: Cascade)
+  
+  date        DateTime
+  timeframe   String   @default("1D") // 1D, 1W, 1M
+  
+  // OHLCV
+  open        Float
+  high        Float
+  low         Float
+  close       Float
+  volume      Float
+  
+  // Adjusted
+  adjustedClose Float?
+  
+  createdAt   DateTime @default(now())
+  
+  @@unique([securityId, date, timeframe])
+  @@index([securityId, date])
+}
+
+model FinancialStatement {
+  id          String   @id @default(cuid())
+  securityId  String
+  security    Security @relation(fields: [securityId], references: [id], onDelete: Cascade)
+  
+  // Period info
+  periodType  String   // QUARTERLY, ANNUAL
+  periodEnd   DateTime // e.g., 2024-03-31
+  publishedAt DateTime
+  
+  // Statement type
+  type        String   // INCOME_STATEMENT, BALANCE_SHEET, CASH_FLOW
+  
+  // Data (JSON for flexibility)
+  data        String   // JSON string with all line items
+  
+  // Source
+  source      String   // e.g., "IDX", "Company Report"
+  sourceUrl   String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([securityId, periodEnd, type])
+}
+
+model FinancialMetric {
+  id          String   @id @default(cuid())
+  securityId  String
+  security    Security @relation(fields: [securityId], references: [id], onDelete: Cascade)
+  
+  // Period
+  periodEnd   DateTime
+  periodType  String   // QUARTERLY, ANNUAL
+  
+  // Metrics
+  metricName  String   // e.g., "PER", "PBV", "ROE", "DER"
+  metricValue Float
+  
+  // Calculation details
+  formula     String?  // e.g., "Price / EPS"
+  inputs      String?  // JSON with input values
+  
+  // Data quality
+  dataType    String   @default("ACTUAL") // ACTUAL, ESTIMATE, CALCULATED
+  confidence  String   @default("HIGH")   // HIGH, MEDIUM, LOW
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([securityId, periodEnd, metricName])
+  @@index([securityId, metricName])
+}
+
+// ============================================
+// NEWS & DISCLOSURES
+// ============================================
+
+model NewsArticle {
+  id          String   @id @default(cuid())
+  
+  // Article info
+  title       String
+  summary     String?
+  content     String?
+  
+  // Source
+  source      String   // e.g., "Kompas", "Bloomberg", "IDX"
+  sourceUrl   String   @unique
+  author      String?
+  
+  // Classification
+  sentiment   String?  // POSITIVE, NEGATIVE, NEUTRAL
+  materiality String?  // HIGH, MEDIUM, LOW
+  topics      String?  // JSON array of topics
+  
+  // Timing
+  publishedAt DateTime
+  fetchedAt   DateTime @default(now())
+  
+  // AI analysis
+  aiSummary   String?
+  aiImpact    String?  // Impact on thesis
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  securities  NewsArticleSecurity[]
+}
+
+model NewsArticleSecurity {
+  newsArticleId String
+  newsArticle   NewsArticle @relation(fields: [newsArticleId], references: [id], onDelete: Cascade)
+  
+  securityId    String
+  security      Security @relation(fields: [securityId], references: [id], onDelete: Cascade)
+  
+  relevance     Float    @default(1.0) // 0-1, how relevant to this security
+  
+  @@id([newsArticleId, securityId])
+}
+
+model Disclosure {
+  id          String   @id @default(cuid())
+  securityId  String
+  security    Security @relation(fields: [securityId], references: [id], onDelete: Cascade)
+  
+  // Disclosure info
+  type        String   // RUPS, DIVIDEND, FINANCIAL_REPORT, CORPORATE_ACTION, OTHER
+  title       String
+  summary     String?
+  
+  // Source
+  sourceUrl   String
+  publishedAt DateTime
+  
+  // Data
+  data        String?  // JSON with structured data if applicable
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([securityId, sourceUrl])
+}
+
+model CorporateAction {
+  id          String   @id @default(cuid())
+  securityId  String
+  security    Security @relation(fields: [securityId], references: [id], onDelete: Cascade)
+  
+  // Action info
+  type        String   // DIVIDEND, STOCK_SPLIT, RIGHT_ISSUE, RUPS, MERGER, OTHER
+  title       String
+  description String?
+  
+  // Key dates
+  announcementDate DateTime?
+  exDate           DateTime?
+  recordDate       DateTime?
+  paymentDate      DateTime?
+  executionDate    DateTime?
+  
+  // Details (varies by type)
+  details     String?  // JSON with action-specific data
+  
+  status      String   @default("ANNOUNCED") // ANNOUNCED, PENDING, COMPLETED, CANCELLED
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ============================================
+// INVESTMENT THESIS
+// ============================================
+
+model Thesis {
+  id          String   @id @default(cuid())
+  positionId  String?  @unique
+  position    Position? @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  
+  securityId  String
+  security    Security @relation(fields: [securityId], references: [id])
+  
+  // Thesis content
+  title       String
+  summary     String
+  
+  // Core thesis elements
+  reason      String   // Why buying/holding
+  horizon     String   // Expected holding period
+  catalyst    String?  // Expected catalysts
+  risks       String?  // Key risks
+  invalidation String? // Conditions that would invalidate thesis
+  
+  // Monitoring
+  indicators  String?  // JSON array of indicators to monitor
+  thresholds  String?  // JSON with threshold values
+  
+  // Status
+  status      String   @default("UTUH") // UTUH, DIPANTAU, MELEMAH, PATAH
+  confidence  String   @default("SEDANG") // TINGGI, SEDANG, RENDAH
+  
+  // Versioning
+  version     Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  reviewedAt  DateTime?
+  
+  // Relations
+  versions    ThesisVersion[]
+  evidence    ThesisEvidence[]
+}
+
+model ThesisVersion {
+  id          String   @id @default(cuid())
+  thesisId    String
+  thesis      Thesis   @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+  
+  version     Int
+  
+  // Snapshot of thesis at this version
+  title       String
+  summary     String
+  reason      String
+  horizon     String
+  catalyst    String?
+  risks       String?
+  invalidation String?
+  status      String
+  confidence  String
+  
+  // Change info
+  changeNotes String?
+  changedAt   DateTime @default(now())
+  
+  @@unique([thesisId, version])
+}
+
+model ThesisEvidence {
+  id          String   @id @default(cuid())
+  thesisId    String
+  thesis      Thesis   @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+  
+  // Evidence info
+  type        String   // SUPPORTING, CONTRADICTING, NEUTRAL
+  source      String   // NEWS, FINANCIAL_DATA, DISCLOSURE, TECHNICAL, OTHER
+  sourceId    String?  // ID of related news/disclosure/etc
+  
+  // Evidence content
+  title       String
+  description String
+  
+  // Impact assessment
+  impact      String   // HIGH, MEDIUM, LOW
+  relevance   String   // DIRECT, INDIRECT
+  
+  // AI analysis
+  aiAnalysis  String?
+  confidence  String   @default("SEDANG")
+  
+  // Status
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ============================================
+// ALERTS
+// ============================================
+
+model AlertRule {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  securityId  String?  // null = portfolio-level alert
+  
+  // Alert configuration
+  name        String
+  type        String   // PRICE, VOLUME, FUNDAMENTAL, NEWS, THESIS, TECHNICAL
+  condition   String   // JSON with condition details
+  
+  // Priority
+  priority    String   @default("INFO") // INFO, REVIEW, CRITICAL
+  
+  // Status
+  isActive    Boolean  @default(true)
+  lastTriggered DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  events      AlertEvent[]
+}
+
+model AlertEvent {
+  id          String   @id @default(cuid())
+  ruleId      String
+  rule        AlertRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  
+  // Event info
+  title       String
+  message     String
+  
+  // Context
+  previousValue String?
+  currentValue  String?
+  
+  // Impact
+  impact      String?  // Impact description
+  thesisImpact String? // Impact on thesis
+  
+  // Status
+  isRead      Boolean  @default(false)
+  isRelevant  Boolean? // User feedback
+  dismissedAt DateTime?
+  
+  createdAt   DateTime @default(now())
+}
+
+// ============================================
+// JOURNAL
+// ============================================
+
+model JournalEntry {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Entry info
+  title       String
+  content     String
+  
+  // Type
+  type        String   // DECISION, REVIEW, REFLECTION, NOTE
+  
+  // Related entities
+  securityId  String?
+  positionId  String?
+  thesisId    String?
+  alertId     String?
+  
+  // Decision details (if type = DECISION)
+  action      String?  // BUY, SELL, HOLD, ADD, REDUCE
+  reasoning   String?
+  emotion     String?  // User's emotional state
+  confidence  String?  // Confidence in decision
+  
+  // Expectations
+  expectations String? // What user expects to happen
+  reviewDate  DateTime? // When to review this decision
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ============================================
+// AI & CITATIONS
+// ============================================
+
+model AIConversation {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Conversation context
+  securityId  String?
+  thesisId    String?
+  
+  // Conversation
+  messages    String   // JSON array of messages
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  citations   AIResponseCitation[]
+}
+
+model AIResponseCitation {
+  id          String   @id @default(cuid())
+  conversationId String
+  conversation AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  // Citation info
+  claim       String   // The claim made
+  sourceType  String   // NEWS, FINANCIAL_DATA, DISCLOSURE, THESIS, OTHER
+  sourceId    String?  // ID of source
+  sourceUrl   String?
+  
+  // Verification
+  supportsClaim Boolean @default(true)
+  verifiedAt    DateTime?
+  
+  // User feedback
+  feedback    String?  // CORRECT, INCORRECT, IRRESPONSIVE
+  feedbackAt  DateTime?
+  
+  createdAt   DateTime @default(now())
+}
+
+// ============================================
+// DATA QUALITY
+// ============================================
+
+model DataSource {
+  id          String   @id @default(cuid())
+  
+  name        String   @unique // e.g., "IDX", "RTI", "OJK"
+  type        String   // OFFICIAL, LICENSED, MEDIA, SECONDARY
+  baseUrl     String?
+  
+  // Reliability
+  reliability String   @default("HIGH") // HIGH, MEDIUM, LOW
+  
+  // Rate limits
+  rateLimit   Int?     // requests per minute
+  dailyLimit  Int?
+  
+  // Status
+  isActive    Boolean  @default(true)
+  lastSyncAt  DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model DataQualityRecord {
+  id          String   @id @default(cuid())
+  
+  // What data
+  entityType  String   // PRICE, FINANCIAL, NEWS, DISCLOSURE
+  entityId    String   // ID of the entity
+  
+  // Quality info
+  issue       String   // MISSING, STALE, INCONSISTENT, ERROR
+  severity    String   // LOW, MEDIUM, HIGH
+  
+  // Details
+  description String
+  resolvedAt  DateTime?
+  resolution  String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ============================================
+// WATCHLIST
+// ============================================
+
+model WatchlistItem {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  securityId  String
+  security    Security @relation(fields: [securityId], references: [id], onDelete: Cascade)
+  
+  // Watchlist info
+  addedAt     DateTime @default(now())
+  notes       String?
+  targetPrice Float?
+  stopLoss    Float?
+  
+  // Pre-entry thesis (optional)
+  thesisDraft String?  // Why considering this stock
+  
+  isActive    Boolean  @default(true)
+  
+  @@unique([userId, securityId])
+}
