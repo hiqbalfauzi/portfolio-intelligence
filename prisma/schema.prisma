@@ -138,6 +138,7 @@ model Security {
   positions   Position[]
   transactions Transaction[]
   priceBars   PriceBar[]
+  stockBriefs StockBrief[]
   financialStatements FinancialStatement[]
   financialMetrics FinancialMetric[]
   newsArticles NewsArticleSecurity[]
@@ -675,6 +676,20 @@ model DataQualityRecord {
 // ============================================
 // WATCHLIST
 // ============================================
+
+model StockBrief {
+  id          String   @id @default(cuid())
+  securityId  String
+  security    Security @relation(fields: [securityId], references: [id], onDelete: Cascade)
+
+  date        DateTime // tanggal brief (hari bursa)
+  content     String   // markdown ringkas hasil AI
+  confidence  String   @default("SEDANG")
+  model       String?
+  createdAt   DateTime @default(now())
+
+  @@unique([securityId, date])
+}
 
 model WatchlistItem {
   id          String   @id @default(cuid())
