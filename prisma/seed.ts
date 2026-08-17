@@ -11,11 +11,13 @@ async function main() {
 
   const user = await prisma.user.upsert({
     where: { email: 'user@example.com' },
-    update: {},
+    update: {
+      passwordHash: '$2b$12$L1oGuJzjCPBoqt7vFmWtr.1LYF3fMfJUAVqHA/wZbsD.c1qQWNzbG',
+    },
     create: {
       email: 'user@example.com',
       name: 'Investor',
-      passwordHash: 'hashed_password_placeholder',
+      passwordHash: '$2b$12$L1oGuJzjCPBoqt7vFmWtr.1LYF3fMfJUAVqHA/wZbsD.c1qQWNzbG',
       preferences: {
         create: {
           horizon: 'long-term',
@@ -54,8 +56,13 @@ async function main() {
   let totalCost = 0
 
   for (const stock of stocks) {
-    const security = await prisma.security.create({
-      data: {
+    const security = await prisma.security.upsert({
+      where: { ticker: stock.ticker },
+      update: {
+        lastPrice: stock.last,
+        lastUpdate: new Date(),
+      },
+      create: {
         ticker: stock.ticker,
         name: stock.name,
         sector: stock.sector,

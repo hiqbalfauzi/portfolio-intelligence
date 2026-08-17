@@ -54,3 +54,9 @@ next-env.d.ts
 .claude/
 .windsurf/
 skills-lock.json
+
+# temp files
+cookies.txt
+test_cookies.txt
+vs_buildtools.exe
+.hermes/

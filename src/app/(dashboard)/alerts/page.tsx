@@ -1,199 +1,200 @@
+import { prisma } from '@/lib/prisma'
 import { Card, CardHeader, CardContent } from '@/components/Card'
-import { Bell, Check, X, Filter } from 'lucide-react'
+import { Bell, AlertTriangle, Info, CheckCircle, AlertCircle } from 'lucide-react'
 
-const mockAlerts = [
-  {
-    id: '1',
-    type: 'THESIS',
-    priority: 'REVIEW',
-    title: 'Margin BBRI Menurun',
-    message: 'Margin laba bersih Q3 turun dari 35% menjadi 32%. Hal ini berkaitan dengan asumsi tesis "margin stabil di atas 34%".',
-    ticker: 'BBRI',
-    time: '2 jam lalu',
-    isRead: false
-  },
-  {
-    id: '2',
-    type: 'PRICE',
-    priority: 'CRITICAL',
-    title: 'Penurunan Harga Signifikan',
-    message: 'TLKM turun 5.2% hari ini dengan volume 2x rata-rata. Berita: Kompetisi intensif di segmen mobile.',
-    ticker: 'TLKM',
-    time: '5 jam lalu',
-    isRead: false
-  },
-  {
-    id: '3',
-    type: 'NEWS',
-    priority: 'INFO',
-    title: 'Berita Positif BBCA',
-    message: 'BBCA mengumumkan ekspansi digital banking. Potensi peningkatan fee-based income di 2026.',
-    ticker: 'BBCA',
-    time: '1 hari lalu',
-    isRead: true
-  },
-  {
-    id: '4',
-    type: 'FUNDAMENTAL',
-    priority: 'REVIEW',
-    title: 'Laporan Keuangan Baru',
-    message: 'ASII telah merilis laporan keuangan Q3 2025. Laba bersih tumbuh 8% YoY.',
-    ticker: 'ASII',
-    time: '2 hari lalu',
-    isRead: true
+export const dynamic = 'force-dynamic'
+
+export default async function AlertsPage() {
+  const alerts = await prisma.alertEvent.findMany({
+    take: 50,
+    orderBy: { createdAt: 'desc' },
+    include: {
+      rule: true,
+    },
+  })
+
+  const rules = await prisma.alertRule.findMany({
+    orderBy: { createdAt: 'desc' },
+  })
+
+  const unreadCount = alerts.filter(a => !a.isRead).length
+  const criticalCount = alerts.filter(a => a.rule.priority === 'CRITICAL').length
+  const reviewCount = alerts.filter(a => a.rule.priority === 'REVIEW').length
+
+  const priorityColor = (priority: string) => {
+    switch (priority) {
+      case 'CRITICAL': return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+      case 'REVIEW': return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
+      default: return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+    }
   }
-]
 
-export default function AlertsPage() {
+  const priorityIcon = (priority: string) => {
+    switch (priority) {
+      case 'CRITICAL': return <AlertTriangle className="h-4 w-4" />
+      case 'REVIEW': return <AlertCircle className="h-4 w-4" />
+      default: return <Info className="h-4 w-4" />
+    }
+  }
+
+  const fmt = (date: Date) => {
+    return date.toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-100">Alerts</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Notifikasi dan peringatan untuk portofolio Anda</p>
-        </div>
-        <button className="flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
-          <Filter className="h-4 w-4" />
-          Filter
-        </button>
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Alerts</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Notifikasi dan peringatan untuk portofolio Anda</p>
       </div>
 
+      {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
-          <CardContent className="py-4">
+          <CardContent>
             <div className="flex items-center gap-3">
-              <div className="rounded-full bg-red-50 p-2">
-                <Bell className="h-5 w-5 text-red-600" />
+              <div className="rounded-full bg-blue-100 dark:bg-blue-900/30 p-2">
+                <Bell className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">2</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Alert Baru</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{unreadCount}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Belum Dibaca</p>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="py-4">
+          <CardContent>
             <div className="flex items-center gap-3">
-              <div className="rounded-full bg-yellow-50 dark:bg-yellow-900/20 p-2">
-                <Bell className="h-5 w-5 text-yellow-600" />
+              <div className="rounded-full bg-red-100 dark:bg-red-900/30 p-2">
+                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">2</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{criticalCount}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Kritis</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent>
+            <div className="flex items-center gap-3">
+              <div className="rounded-full bg-yellow-100 dark:bg-yellow-900/30 p-2">
+                <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{reviewCount}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Perlu Ditinjau</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="py-4">
-            <div className="flex items-center gap-3">
-              <div className="rounded-full bg-blue-50 p-2">
-                <Bell className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">8</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Total Alert (7 hari)</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
+      {/* Alert Rules */}
       <Card>
-        <CardHeader title="Alert Terbaru" description="Notifikasi berdasarkan prioritas" />
+        <CardHeader title="Alert Rules" description="Aturan alert yang aktif" />
         <CardContent>
-          <div className="space-y-3">
-            {mockAlerts.map((alert) => (
-              <div
-                key={alert.id}
-                className={`rounded-lg border border-gray-200 dark:border-gray-700 p-4 ${
-                  alert.isRead ? 'bg-white' : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                          alert.priority === 'CRITICAL'
-                            ? 'bg-red-100 text-red-800'
-                            : alert.priority === 'REVIEW'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-blue-100 text-blue-800'
-                        }`}
-                      >
-                        {alert.priority === 'CRITICAL' ? 'Kritis' : alert.priority === 'REVIEW' ? 'Perlu Ditinjau' : 'Info'}
-                      </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">{alert.type}</span>
-                      {alert.ticker && (
-                        <span className="rounded bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs font-medium text-gray-700">
-                          {alert.ticker}
-                        </span>
-                      )}
+          {rules.length > 0 ? (
+            <div className="space-y-2">
+              {rules.map((rule) => (
+                <div key={rule.id} className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`rounded-full p-1.5 ${priorityColor(rule.priority)}`}>
+                      {priorityIcon(rule.priority)}
                     </div>
-                    <h3 className="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">{alert.title}</h3>
-                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{alert.message}</p>
-                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{alert.time}</p>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{rule.name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{rule.type}</p>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button className="rounded-lg p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20">
-                      <Check className="h-4 w-4" />
-                    </button>
-                    <button className="rounded-lg p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
-                      <X className="h-4 w-4" />
-                    </button>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs px-2 py-1 rounded ${priorityColor(rule.priority)}`}>
+                      {rule.priority}
+                    </span>
+                    <span className={`text-xs px-2 py-1 rounded ${rule.isActive ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
+                      {rule.isActive ? 'Aktif' : 'Nonaktif'}
+                    </span>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Bell className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-500 dark:text-gray-400">Belum ada alert rule</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Alert rule akan dibuat saat ada kondisi yang perlu dipantau</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
+      {/* Alert Events */}
       <Card>
-        <CardHeader title="Pengaturan Alert" description="Kelola preferensi notifikasi" />
+        <CardHeader title="Riwayat Alert" description="Notifikasi yang telah diterima" />
         <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Notifikasi Email</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Kirim alert kritis dan perlu ditinjau via email</p>
-              </div>
-              <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-blue-600">
-                <span className="inline-block h-4 w-4 translate-x-6 rounded-full bg-white transition-transform"></span>
-              </button>
+          {alerts.length > 0 ? (
+            <div className="space-y-3">
+              {alerts.map((alert) => (
+                <div
+                  key={alert.id}
+                  className={`rounded-lg border p-4 ${
+                    alert.isRead
+                      ? 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                      : 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/10'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`rounded-full p-1.5 ${priorityColor(alert.rule.priority)}`}>
+                      {priorityIcon(alert.rule.priority)}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {alert.title}
+                        </h4>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs px-2 py-1 rounded ${priorityColor(alert.rule.priority)}`}>
+                            {alert.rule.priority}
+                          </span>
+                          {!alert.isRead && (
+                            <span className="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+                              Baru
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        {alert.message}
+                      </p>
+                      <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
+                        <span>{fmt(alert.createdAt)}</span>
+                        <span>Rule: {alert.rule.name}</span>
+                        {alert.previousValue && alert.currentValue && (
+                          <span>
+                            {alert.previousValue} → {alert.currentValue}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Quiet Hours</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Jangan kirim notifikasi antara 22:00 - 06:00</p>
-              </div>
-              <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200">
-                <span className="inline-block h-4 w-4 translate-x-1 rounded-full bg-white transition-transform"></span>
-              </button>
+          ) : (
+            <div className="text-center py-8">
+              <CheckCircle className="h-12 w-12 text-green-300 dark:text-green-600 mx-auto mb-3" />
+              <p className="text-gray-500 dark:text-gray-400">Tidak ada alert</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Semua baik-baik saja!</p>
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Jenis Alert yang Dipantau</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800">
-                  Harga ✓
-                </span>
-                <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800">
-                  Fundamental ✓
-                </span>
-                <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800">
-                  Berita ✓
-                </span>
-                <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800">
-                  Tesis ✓
-                </span>
-                <span className="rounded-full bg-gray-100 dark:bg-gray-700 px-3 py-1 text-xs font-medium text-gray-800">
-                  Teknikal
-                </span>
-              </div>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>

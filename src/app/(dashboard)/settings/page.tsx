@@ -1,194 +1,222 @@
+import { prisma } from '@/lib/prisma'
 import { Card, CardHeader, CardContent } from '@/components/Card'
-import { Settings as SettingsIcon, User, Bell, Database, Shield } from 'lucide-react'
+import { User, Settings as SettingsIcon, TrendingUp, Shield, Clock } from 'lucide-react'
 
-export default function SettingsPage() {
+export const dynamic = 'force-dynamic'
+
+export default async function SettingsPage() {
+  const user = await prisma.user.findFirst({
+    include: {
+      preferences: true,
+      portfolios: {
+        include: {
+          _count: {
+            select: { positions: { where: { isActive: true } } }
+          }
+        }
+      },
+    },
+  })
+
+  const preferences = user?.preferences
+  const portfolios = user?.portfolios || []
+  const totalPositions = portfolios.reduce((sum, p) => sum + p._count.positions, 0)
+
+  const horizonLabel = (horizon?: string) => {
+    switch (horizon) {
+      case 'short-term': return 'Jangka Pendek (< 1 tahun)'
+      case 'medium-term': return 'Jangka Menengah (1-3 tahun)'
+      case 'long-term': return 'Jangka Panjang (> 3 tahun)'
+      default: return 'Belum diatur'
+    }
+  }
+
+  const riskLabel = (risk?: string) => {
+    switch (risk) {
+      case 'conservative': return 'Konservatif'
+      case 'moderate': return 'Moderat'
+      case 'aggressive': return 'Agresif'
+      default: return 'Belum diatur'
+    }
+  }
+
+  const riskColor = (risk?: string) => {
+    switch (risk) {
+      case 'conservative': return 'text-green-600 dark:text-green-400'
+      case 'moderate': return 'text-yellow-600 dark:text-yellow-400'
+      case 'aggressive': return 'text-red-600 dark:text-red-400'
+      default: return 'text-gray-500'
+    }
+  }
+
+  const analysisLabel = (style?: string) => {
+    switch (style) {
+      case 'fundamental': return 'Fundamental'
+      case 'technical': return 'Teknikal'
+      case 'balanced': return 'Seimbang'
+      default: return 'Belum diatur'
+    }
+  }
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Pengaturan dashboard dan preferensi Anda</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Pengaturan</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Kelola profil dan preferensi investasi Anda</p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader title="Profil Investasi" description="Pengaturan preferensi investasi Anda" />
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Horizon Investasi</label>
-                  <select className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                    <option>Jangka Panjang (&gt; 1 tahun)</option>
-                    <option>Jangka Menengah (3-12 bulan)</option>
-                    <option>Jangka Pendek (&lt; 3 bulan)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Toleransi Risiko</label>
-                  <select className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                    <option>Konservatif</option>
-                    <option>Moderat</option>
-                    <option>Agresif</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Benchmark</label>
-                  <select className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                    <option>IHSG</option>
-                    <option>LQ45</option>
-                    <option>Jakarta Islamic Index</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Gaya Analisis</label>
-                  <select className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                    <option>Fundamental</option>
-                    <option>Teknikal</option>
-                    <option>Seimbang</option>
-                  </select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      {/* User Profile */}
+      <Card>
+        <CardHeader title="Profil Pengguna" description="Informasi akun Anda" />
+        <CardContent>
+          <div className="flex items-center gap-4">
+            <div className="rounded-full bg-blue-100 dark:bg-blue-900/30 p-3">
+              <User className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                {user?.name || 'Belum ada nama'}
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{user?.email}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-          <Card>
-            <CardHeader title="Preferensi Umum" />
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Mata Uang</label>
-                  <select className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                    <option>IDR - Rupiah Indonesia</option>
-                    <option>USD - Dolar Amerika</option>
-                  </select>
+      {/* Investment Profile */}
+      <Card>
+        <CardHeader title="Profil Investasi" description="Preferensi dan gaya investasi Anda" />
+        <CardContent>
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock className="h-4 w-4 text-gray-500" />
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Horizon Investasi</p>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Zona Waktu</label>
-                  <select className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                    <option>WIB (UTC+7)</option>
-                    <option>WITA (UTC+8)</option>
-                    <option>WIT (UTC+9)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Bahasa</label>
-                  <select className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                    <option>Bahasa Indonesia</option>
-                    <option>English</option>
-                  </select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader title="Notifikasi" />
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">Notifikasi Email</p>
-                    <p className="text-xs text-gray-500">Kirim ringkasan harian dan alert kritis via email</p>
-                  </div>
-                  <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-blue-600">
-                    <span className="inline-block h-4 w-4 translate-x-6 rounded-full bg-white transition-transform"></span>
-                  </button>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">Notifikasi Telegram</p>
-                    <p className="text-xs text-gray-500">Kirim alert via Telegram bot</p>
-                  </div>
-                  <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200">
-                    <span className="inline-block h-4 w-4 translate-x-1 rounded-full bg-white transition-transform"></span>
-                  </button>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Frekuensi Ringkasan</label>
-                  <select className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                    <option>Harian</option>
-                    <option>Mingguan</option>
-                    <option>Tidak pernah</option>
-                  </select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-6">
-          <Card>
-            <CardHeader title="Akun" />
-            <CardContent>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Email</p>
-                  <p className="text-sm text-gray-600">user@example.com</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Bergabung Sejak</p>
-                  <p className="text-sm text-gray-600">1 Januari 2026</p>
-                </div>
-                <button className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                  Ubah Password
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader title="Data & Privasi" />
-            <CardContent>
-              <div className="space-y-3">
-                <button className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                  Ekspor Data
-                </button>
-                <button className="w-full rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50">
-                  Hapus Akun
-                </button>
-                <p className="text-xs text-gray-500">
-                  Menghapus akun akan menghapus semua data portofolio, tesis, dan jurnal Anda secara permanen.
+                <p className="text-lg text-gray-900 dark:text-gray-100">
+                  {horizonLabel(preferences?.horizon)}
                 </p>
               </div>
-            </CardContent>
-          </Card>
 
-          <Card>
-            <CardHeader title="Sumber Data" />
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">IDX</p>
-                    <p className="text-xs text-gray-500">Keterbukaan informasi</p>
-                  </div>
-                  <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">
-                    Aktif
-                  </span>
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Shield className="h-4 w-4 text-gray-500" />
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Toleransi Risiko</p>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">RTI</p>
-                    <p className="text-xs text-gray-500">Data harga & volume</p>
-                  </div>
-                  <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">
-                    Aktif
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">Media Berita</p>
-                    <p className="text-xs text-gray-500">5 sumber aktif</p>
-                  </div>
-                  <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">
-                    Aktif
-                  </span>
-                </div>
+                <p className={`text-lg ${riskColor(preferences?.riskTolerance)}`}>
+                  {riskLabel(preferences?.riskTolerance)}
+                </p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="h-4 w-4 text-gray-500" />
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Gaya Analisis</p>
+                </div>
+                <p className="text-lg text-gray-900 dark:text-gray-100">
+                  {analysisLabel(preferences?.analysisStyle)}
+                </p>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <SettingsIcon className="h-4 w-4 text-gray-500" />
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Benchmark</p>
+                </div>
+                <p className="text-lg text-gray-900 dark:text-gray-100">
+                  {preferences?.benchmark || 'IHSG'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Portfolio Summary */}
+      <Card>
+        <CardHeader title="Ringkasan Portofolio" description="Statistik akun investasi Anda" />
+        <CardContent>
+          <div className="grid gap-6 md:grid-cols-3">
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Jumlah Portofolio</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{portfolios.length}</p>
+            </div>
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Posisi Aktif</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{totalPositions}</p>
+            </div>
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Mata Uang</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                {preferences?.currency || 'IDR'}
+              </p>
+            </div>
+          </div>
+
+          {portfolios.length > 0 && (
+            <div className="mt-6">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Daftar Portofolio</h4>
+              <div className="space-y-2">
+                {portfolios.map((portfolio) => (
+                  <div key={portfolio.id} className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {portfolio.name}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {portfolio.broker || 'Tidak ada broker'} • {portfolio._count.positions} posisi
+                      </p>
+                    </div>
+                    <span className="text-xs px-2 py-1 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                      Aktif
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Data Sources */}
+      <Card>
+        <CardHeader title="Sumber Data" description="Status integrasi data" />
+        <CardContent>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Harga Saham</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Data end-of-day dari demo broker</p>
+              </div>
+              <span className="text-xs px-2 py-1 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                Terhubung
+              </span>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Berita & Sentimen</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Belum dikonfigurasi</p>
+              </div>
+              <span className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+                Belum
+              </span>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Laporan Keuangan</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Belum dikonfigurasi</p>
+              </div>
+              <span className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+                Belum
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
