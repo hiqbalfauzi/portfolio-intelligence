@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { Card, CardHeader, CardContent } from '@/components/Card'
 import { MetricCard } from '@/components/MetricCard'
 import Link from 'next/link'
-import { ArrowLeft, TrendingUp, TrendingDown, Target, Calendar, FileText } from 'lucide-react'
+import { ArrowLeft, TrendingUp, TrendingDown, Target, Calendar, FileText, BarChart3 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -95,6 +95,13 @@ export default async function StockDetailPage({ params }: StockPageProps) {
           <p className={`text-sm font-medium ${position.unrealizedPLPercent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
             {position.unrealizedPLPercent >= 0 ? '+' : ''}{position.unrealizedPLPercent.toFixed(2)}%
           </p>
+          <Link
+            href={`/stocks/${tickerUpper}/fundamental`}
+            className="mt-2 inline-flex items-center gap-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40"
+          >
+            <BarChart3 className="h-3.5 w-3.5" />
+            Lihat Fundamental →
+          </Link>
         </div>
       </div>
 

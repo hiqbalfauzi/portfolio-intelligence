@@ -60,3 +60,4 @@ cookies.txt
 test_cookies.txt
 vs_buildtools.exe
 .hermes/
+.tmp/
