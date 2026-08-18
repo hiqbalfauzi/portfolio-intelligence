@@ -41,15 +41,16 @@ async function main() {
   console.log('✅ Portfolio created:', portfolio.name)
 
   const stocks = [
-    { ticker: 'POWR', name: 'Powertek Indonesia', sector: 'Industrials', qty: 101, avg: 749, last: 810 },
-    { ticker: 'AUTO', name: 'Astra Otoparts', sector: 'Consumer Non-Cyclicals', qty: 12, avg: 2801, last: 2900 },
-    { ticker: 'DMAS', name: 'Dharma Satya Nusantara', sector: 'Basic Materials', qty: 271, avg: 146, last: 149 },
-    { ticker: 'RALS', name: 'Prima Alloy Steel', sector: 'Industrials', qty: 132, avg: 379, last: 382 },
-    { ticker: 'MPMX', name: 'Mitra Pengayom Indonesia', sector: 'Industrials', qty: 49, avg: 1006, last: 1005 },
-    { ticker: 'BMRI', name: 'Bank Mandiri', sector: 'Financials', qty: 31, avg: 4177, last: 4170 },
-    { ticker: 'TAPG', name: 'Tap Agro', sector: 'Consumer Non-Cyclicals', qty: 9, avg: 1816, last: 1790 },
-    { ticker: 'PGAS', name: 'Perusahaan Gas Negara', sector: 'Energy', qty: 25, avg: 1505, last: 1495 },
-    { ticker: 'BJTM', name: 'Bank Jatim', sector: 'Financials', qty: 80, avg: 519, last: 515 },
+    { ticker: 'BMRI', name: 'Bank Mandiri (Persero) Tbk', sector: 'Financials', qty: 31, avg: 4000, last: 4150 },
+    { ticker: 'POWR', name: 'Powertek Indonesia Tbk', sector: 'Industrials', qty: 77, avg: 820, last: 840 },
+    { ticker: 'BNGA', name: 'Bank NTT Tbk', sector: 'Financials', qty: 51, avg: 1650, last: 1690 },
+    { ticker: 'BJTM', name: 'Bank Jatim Tbk', sector: 'Financials', qty: 114, avg: 500, last: 515 },
+    { ticker: 'PGAS', name: 'Perusahaan Gas Negara Tbk', sector: 'Energy', qty: 27, avg: 1480, last: 1515 },
+    { ticker: 'DMAS', name: 'Dharma Satya Nusantara Tbk', sector: 'Basic Materials', qty: 271, avg: 158, last: 161 },
+    { ticker: 'TAPG', name: 'Tapera Agra Persada Tbk', sector: 'Consumer Non-Cyclicals', qty: 25, avg: 1800, last: 1830 },
+    { ticker: 'MPMX', name: 'Mitra Pengayom Indonesia Tbk', sector: 'Industrials', qty: 6, avg: 980, last: 1000 },
+    { ticker: 'RALS', name: 'Prima Alloy Steel Tbk', sector: 'Industrials', qty: 11, avg: 370, last: 380 },
+    { ticker: 'AUTO', name: 'Astra Otoparts Tbk', sector: 'Consumer Non-Cyclicals', qty: 12, avg: 2850, last: 2930 },
   ]
 
   let totalValue = 0
