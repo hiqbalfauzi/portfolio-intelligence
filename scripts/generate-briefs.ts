@@ -124,7 +124,7 @@ async function generateBrief(context: string): Promise<{ content: string; confid
           { role: 'system', content: BRIEF_PROMPT + context },
           { role: 'user', content: 'Tulis brief hari ini.' },
         ],
-        max_tokens: 2000,
+        max_tokens: 4000, // reasoning model: <4000 → content bisa kosong
         temperature: 0.3,
       }),
     })

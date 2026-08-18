@@ -1,29 +1,30 @@
 import { prisma } from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth'
 import { Card, CardHeader, CardContent } from '@/components/Card'
-import { BookOpen, Plus, TrendingUp, TrendingDown, Brain, FileText } from 'lucide-react'
+import { JournalEntryForm, DeleteButton } from '@/components/JournalForm'
+import { redirect } from 'next/navigation'
+import { BookOpen, TrendingUp, Brain } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
 export default async function JournalPage() {
-  const user = await prisma.user.findFirst({
-    include: {
-      journalEntries: {
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-      },
-    },
-  })
+  const user = await getCurrentUser()
+  if (!user) redirect('/login')
 
-  const entries = user?.journalEntries || []
+  const [entries, securities] = await Promise.all([
+    prisma.journalEntry.findMany({
+      where: { userId: user.userId },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    }),
+    prisma.security.findMany({
+      where: { positions: { some: { isActive: true } } },
+      orderBy: { ticker: 'asc' },
+      select: { id: true, ticker: true },
+    }),
+  ])
 
-  const typeIcon = (type: string) => {
-    switch (type) {
-      case 'DECISION': return <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-      case 'REVIEW': return <FileText className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-      case 'REFLECTION': return <Brain className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-      default: return <FileText className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-    }
-  }
+  const tickerById = new Map(securities.map(s => [s.id, s.ticker]))
 
   const typeColor = (type: string) => {
     switch (type) {
@@ -33,54 +34,31 @@ export default async function JournalPage() {
       default: return 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-400'
     }
   }
-
-  const typeLabel = (type: string) => {
-    switch (type) {
-      case 'DECISION': return 'Keputusan'
-      case 'REVIEW': return 'Tinjauan'
-      case 'REFLECTION': return 'Refleksi'
-      default: return 'Catatan'
-    }
-  }
-
-  const actionColor = (action?: string) => {
+  const typeLabel = (type: string) =>
+    ({ DECISION: 'Keputusan', REVIEW: 'Tinjauan', REFLECTION: 'Refleksi' } as Record<string, string>)[type] || 'Catatan'
+  const actionColor = (action?: string | null) => {
     switch (action) {
-      case 'BUY': return 'text-green-600 dark:text-green-400'
+      case 'BUY': case 'ADD': return 'text-green-600 dark:text-green-400'
       case 'SELL': return 'text-red-600 dark:text-red-400'
-      case 'HOLD': return 'text-gray-600 dark:text-gray-400'
-      case 'ADD': return 'text-green-600 dark:text-green-400'
       case 'REDUCE': return 'text-orange-600 dark:text-orange-400'
-      default: return ''
+      default: return 'text-gray-600 dark:text-gray-400'
     }
   }
+  const fmt = (date: Date) => date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
 
-  const fmt = (date: Date) => {
-    return date.toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    })
-  }
-
-  // Stats
   const decisionCount = entries.filter(e => e.type === 'DECISION').length
   const reflectionCount = entries.filter(e => e.type === 'REFLECTION').length
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Jurnal Investasi</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Catat keputusan, refleksi, dan evaluasi investasi Anda</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Catat keputusan, alasan, ekspektasi, dan emosi — lalu evaluasi nanti</p>
         </div>
-        <button className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-          <Plus className="h-4 w-4" />
-          Catatan Baru
-        </button>
+        <JournalEntryForm tickers={securities.map(s => s.ticker)} />
       </div>
 
-      {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardContent>
@@ -123,7 +101,6 @@ export default async function JournalPage() {
         </Card>
       </div>
 
-      {/* Journal Entries */}
       <Card>
         <CardHeader title="Catatan Terbaru" description="Riwayat keputusan dan refleksi investasi" />
         <CardContent>
@@ -132,34 +109,21 @@ export default async function JournalPage() {
               {entries.map((entry) => (
                 <div key={entry.id} className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
                   <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`rounded-full p-1.5 ${typeColor(entry.type)}`}>
-                        {typeIcon(entry.type)}
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {entry.title}
-                        </h4>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className={`text-xs px-2 py-0.5 rounded ${typeColor(entry.type)}`}>
-                            {typeLabel(entry.type)}
-                          </span>
-                          {entry.action && (
-                            <span className={`text-xs font-medium ${actionColor(entry.action)}`}>
-                              {entry.action}
-                            </span>
-                          )}
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {fmt(entry.createdAt)}
-                          </span>
-                        </div>
-                      </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">{entry.title}</h4>
+                      <span className={`text-xs px-2 py-0.5 rounded ${typeColor(entry.type)}`}>{typeLabel(entry.type)}</span>
+                      {entry.action && <span className={`text-xs font-medium ${actionColor(entry.action)}`}>{entry.action}</span>}
+                      {entry.securityId && tickerById.get(entry.securityId) && (
+                        <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                          {tickerById.get(entry.securityId)}
+                        </span>
+                      )}
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{fmt(entry.createdAt)}</span>
                     </div>
+                    <DeleteButton id={entry.id} />
                   </div>
 
-                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
-                    {entry.content}
-                  </p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">{entry.content}</p>
 
                   {entry.reasoning && (
                     <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 mb-2">
@@ -167,21 +131,16 @@ export default async function JournalPage() {
                       <p className="text-sm text-gray-600 dark:text-gray-400">{entry.reasoning}</p>
                     </div>
                   )}
-
                   {entry.expectations && (
-                    <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3">
+                    <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3 mb-2">
                       <p className="text-xs font-medium text-blue-700 dark:text-blue-400 mb-1">Ekspektasi</p>
                       <p className="text-sm text-blue-600 dark:text-blue-400">{entry.expectations}</p>
                     </div>
                   )}
-
-                  {entry.emotion && (
-                    <div className="mt-2">
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        Emosi: <span className="font-medium">{entry.emotion}</span>
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                    {entry.emotion && <span>Emosi: <span className="font-medium">{entry.emotion}</span></span>}
+                    {entry.reviewDate && <span>Review: {fmt(entry.reviewDate)}</span>}
+                  </div>
                 </div>
               ))}
             </div>
@@ -189,9 +148,7 @@ export default async function JournalPage() {
             <div className="text-center py-12">
               <BookOpen className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
               <p className="text-gray-500 dark:text-gray-400 mb-2">Belum ada catatan jurnal</p>
-              <p className="text-sm text-gray-400 dark:text-gray-500">
-                Mulai catat keputusan dan refleksi investasi Anda
-              </p>
+              <p className="text-sm text-gray-400 dark:text-gray-500">Mulai catat keputusan dan refleksi investasi Anda</p>
             </div>
           )}
         </CardContent>

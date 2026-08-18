@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { Card, CardHeader, CardContent } from '@/components/Card'
 import { MetricCard } from '@/components/MetricCard'
 import Link from 'next/link'
-import { ArrowLeft, TrendingUp, TrendingDown, Target, Calendar, FileText, BarChart3 } from 'lucide-react'
+import { ArrowLeft, TrendingUp, TrendingDown, Target, Calendar, FileText, BarChart3, Activity, Scale } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -95,13 +95,29 @@ export default async function StockDetailPage({ params }: StockPageProps) {
           <p className={`text-sm font-medium ${position.unrealizedPLPercent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
             {position.unrealizedPLPercent >= 0 ? '+' : ''}{position.unrealizedPLPercent.toFixed(2)}%
           </p>
-          <Link
-            href={`/stocks/${tickerUpper}/fundamental`}
-            className="mt-2 inline-flex items-center gap-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40"
-          >
-            <BarChart3 className="h-3.5 w-3.5" />
-            Lihat Fundamental →
-          </Link>
+          <div className="mt-2 flex gap-2 justify-end">
+            <Link
+              href={`/stocks/${tickerUpper}/technical`}
+              className="inline-flex items-center gap-1 rounded-lg bg-purple-50 dark:bg-purple-900/20 px-3 py-1.5 text-xs font-medium text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40"
+            >
+              <Activity className="h-3.5 w-3.5" />
+              Teknikal →
+            </Link>
+            <Link
+              href={`/stocks/${tickerUpper}/valuation`}
+              className="inline-flex items-center gap-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40"
+            >
+              <Scale className="h-3.5 w-3.5" />
+              Valuasi →
+            </Link>
+            <Link
+              href={`/stocks/${tickerUpper}/fundamental`}
+              className="inline-flex items-center gap-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40"
+            >
+              <BarChart3 className="h-3.5 w-3.5" />
+              Fundamental →
+            </Link>
+          </div>
         </div>
       </div>
 

@@ -15,7 +15,8 @@ import {
   TrendingUp,
   ArrowLeftRight,
   LogOut,
-  User
+  User,
+  Newspaper
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from './ThemeToggle'
@@ -26,6 +27,7 @@ const navigation = [
   { name: 'Stocks', href: '/stocks', icon: LineChart },
   { name: 'Transaksi', href: '/transactions', icon: ArrowLeftRight },
   { name: 'AI Analyst', href: '/ai-analyst', icon: Brain },
+  { name: 'News', href: '/news', icon: Newspaper },
   { name: 'Risk Center', href: '/risk', icon: Shield },
   { name: 'Alerts', href: '/alerts', icon: Bell },
   { name: 'Journal', href: '/journal', icon: BookOpen },

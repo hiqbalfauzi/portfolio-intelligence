@@ -5,11 +5,10 @@ import path from 'path'
 
 export const runtime = 'nodejs'
 
-// Trigger manual brief regeneration (runs script in background, returns immediately).
-// Output → briefs-refresh.log so silent failures are debuggable.
+// POST /api/news/refresh — jalankan fetch-news.ts di background, output ke news-fetch.log
 export async function POST() {
-  const script = path.join(process.cwd(), 'scripts', 'generate-briefs.ts')
-  const log = openSync(path.join(process.cwd(), 'briefs-refresh.log'), 'a')
+  const script = path.join(process.cwd(), 'scripts', 'fetch-news.ts')
+  const log = openSync(path.join(process.cwd(), 'news-fetch.log'), 'a')
   const child = spawn('npx', ['tsx', script], {
     cwd: process.cwd(),
     detached: true,
