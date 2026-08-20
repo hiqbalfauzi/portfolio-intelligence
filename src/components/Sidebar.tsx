@@ -16,7 +16,8 @@ import {
   ArrowLeftRight,
   LogOut,
   User,
-  Newspaper
+  Newspaper,
+  Eye
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from './ThemeToggle'
@@ -25,6 +26,7 @@ const navigation = [
   { name: 'Overview', href: '/', icon: LayoutDashboard },
   { name: 'Portfolio', href: '/portfolio', icon: Briefcase },
   { name: 'Stocks', href: '/stocks', icon: LineChart },
+  { name: 'Watchlist', href: '/watchlist', icon: Eye },
   { name: 'Transaksi', href: '/transactions', icon: ArrowLeftRight },
   { name: 'AI Analyst', href: '/ai-analyst', icon: Brain },
   { name: 'News', href: '/news', icon: Newspaper },

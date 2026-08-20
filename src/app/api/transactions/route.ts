@@ -70,6 +70,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Portfolio tidak ditemukan' }, { status: 404 })
   }
 
+  // PORT-03: duplicate transaction check (same portfolio+ticker+type+date+qty+price)
+  const dup = await prisma.transaction.findFirst({
+    where: {
+      portfolioId,
+      security: { ticker },
+      type,
+      date: new Date(date),
+      quantity,
+      price,
+    },
+  })
+  if (dup) {
+    return NextResponse.json(
+      { error: `Transaksi duplikat: ${type} ${quantity} lot ${ticker} @ ${price} pada ${new Date(date).toLocaleDateString('id-ID')} sudah tercatat (id: ${dup.id})` },
+      { status: 409 }
+    )
+  }
+
   // Find or create security
   let security = await prisma.security.findUnique({ where: { ticker } })
   if (!security) {

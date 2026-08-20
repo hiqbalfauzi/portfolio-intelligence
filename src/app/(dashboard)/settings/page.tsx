@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { Card, CardHeader, CardContent } from '@/components/Card'
+import { AccountDangerZone } from '@/components/AccountDangerZone'
 import { User, Settings as SettingsIcon, TrendingUp, Shield, Clock } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -215,6 +216,14 @@ export default async function SettingsPage() {
               </span>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* ACC-04: Data Management */}
+      <Card>
+        <CardHeader title="Data & Akun" description="Ekspor atau hapus data Anda" />
+        <CardContent>
+          <AccountDangerZone />
         </CardContent>
       </Card>
     </div>

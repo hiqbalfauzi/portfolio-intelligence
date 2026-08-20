@@ -59,6 +59,14 @@ export default async function OverviewPage() {
     percentage: totalValue > 0 ? (value / totalValue) * 100 : 0,
   }))
 
+  // DASH-06: freshness — latest price update across held securities
+  const priceDates = portfolio?.positions
+    .map(p => p.security.lastUpdate)
+    .filter((d): d is Date => d != null) || []
+  const priceUpdatedAt = priceDates.length
+    ? new Date(Math.max(...priceDates.map(d => d.getTime()))).toISOString()
+    : null
+
   return (
     <OverviewClient
       portfolio={{
@@ -72,6 +80,10 @@ export default async function OverviewPage() {
       }}
       positions={positions}
       sectorData={sectorData}
+      freshness={{
+        portfolioUpdatedAt: portfolio?.updatedAt?.toISOString() ?? null,
+        priceUpdatedAt,
+      }}
       alerts={alerts.map(a => ({
         id: a.id,
         type: a.rule.type,

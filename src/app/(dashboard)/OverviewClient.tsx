@@ -44,17 +44,24 @@ interface OverviewClientProps {
   positions: Position[]
   sectorData: Array<{ name: string; value: number; percentage: number }>
   alerts: Alert[]
+  freshness: {
+    portfolioUpdatedAt: string | null
+    priceUpdatedAt: string | null
+  }
 }
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
 
-export function OverviewClient({ portfolio, positions, sectorData, alerts }: OverviewClientProps) {
+export function OverviewClient({ portfolio, positions, sectorData, alerts, freshness }: OverviewClientProps) {
   const formatCurrency = (value: number) => {
     if (value >= 1000000000) return `Rp ${(value / 1000000000).toFixed(1)}B`
     if (value >= 1000000) return `Rp ${(value / 1000000).toFixed(1)}M`
     if (value >= 1000) return `Rp ${(value / 1000).toFixed(1)}K`
     return `Rp ${value.toFixed(0)}`
   }
+
+  const fmtDate = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : null
 
   const getThesisBadgeColor = (status: string) => {
     switch (status) {
@@ -72,6 +79,11 @@ export function OverviewClient({ portfolio, positions, sectorData, alerts }: Ove
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Overview Portofolio</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">Ringkasan performa dan status portofolio Anda</p>
+        {/* DASH-06: freshness label */}
+        <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+          Data portofolio diperbarui: {fmtDate(freshness.portfolioUpdatedAt) ?? '-'}
+          {' · '}Harga terakhir: {fmtDate(freshness.priceUpdatedAt) ?? 'belum diambil'}
+        </p>
       </div>
 
       {/* Metrics */}
