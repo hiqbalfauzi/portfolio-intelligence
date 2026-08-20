@@ -61,3 +61,9 @@ test_cookies.txt
 vs_buildtools.exe
 .hermes/
 .tmp/
+
+# sync artifacts (mengandung .env & database — jangan di-commit)
+portfolio-sync.tar.gz
+
+# nested duplicate folder (hasil clone/ekstrak di dalam repo)
+/portfolio-intelligence/
