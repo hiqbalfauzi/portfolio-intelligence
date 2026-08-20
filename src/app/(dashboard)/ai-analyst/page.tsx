@@ -132,9 +132,17 @@ export default function AIAnalystPage() {
   }
 
   const handleFeedback = (messageId: string, feedback: Message['feedback']) => {
-    setMessages(prev => prev.map(msg => 
-      msg.id === messageId ? { ...msg, feedback } : msg
-    ))
+    const idx = messages.findIndex(m => m.id === messageId)
+    const msg = messages[idx]
+    if (!msg) return
+    // AI-09: persist feedback — cari pertanyaan user terdekat sebelumnya
+    const question = [...messages.slice(0, idx)].reverse().find(m => m.role === 'user')?.content ?? ''
+    fetch('/api/ai/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, answer: msg.content, feedback }),
+    }).catch(() => {})
+    setMessages(prev => prev.map(m => m.id === messageId ? { ...m, feedback } : m))
   }
 
   // Replace [cN] markers with hoverable superscript chips

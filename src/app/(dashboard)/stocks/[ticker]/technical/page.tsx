@@ -43,6 +43,42 @@ export default async function TechnicalPage({ params }: Props) {
   const dd = maxDrawdown(closes.slice(-252))
   const sr = srZones(bars, 20)
 
+  // TECH-03: relative strength vs IHSG (return saham - return IHSG, periode sama)
+  let rs: { period: string; stock: number; ihsg: number; diff: number }[] = []
+  if (tickerUpper !== 'IHSG') {
+    const ihsgSec = await prisma.security.findUnique({ where: { ticker: 'IHSG' } })
+    if (ihsgSec) {
+      const ihsgRows = await prisma.priceBar.findMany({
+        where: { securityId: ihsgSec.id, timeframe: '1D' },
+        orderBy: { date: 'asc' },
+        take: 500,
+      })
+      if (ihsgRows.length >= 20) {
+        const ihsgByDate = new Map(ihsgRows.map(r => [r.date.toISOString().slice(0, 10), r.close]))
+        const retOver = (days: number): { stock: number; ihsg: number } | null => {
+          if (bars.length < days + 1) return null
+          const startBar = bars[bars.length - 1 - days]
+          const startKey = startBar.date.toISOString().slice(0, 10)
+          const ihsgStart = ihsgByDate.get(startKey)
+          const ihsgLast = ihsgRows[ihsgRows.length - 1].close
+          if (ihsgStart == null || ihsgStart === 0) return null
+          return {
+            stock: ((last.close - startBar.close) / startBar.close) * 100,
+            ihsg: ((ihsgLast - ihsgStart) / ihsgStart) * 100,
+          }
+        }
+        rs = ([
+          { period: '1 Bulan (21 hari)', days: 21 },
+          { period: '3 Bulan (63 hari)', days: 63 },
+          { period: '1 Tahun (252 hari)', days: 252 },
+        ] as const).flatMap(({ period, days }) => {
+          const r = retOver(days)
+          return r ? [{ period, stock: r.stock, ihsg: r.ihsg, diff: r.stock - r.ihsg }] : []
+        })
+      }
+    }
+  }
+
   const ma20 = ma20All[ma20All.length - 1]
   const ma50 = ma50All[ma50All.length - 1]
   const ma200 = ma200All[ma200All.length - 1]
@@ -110,6 +146,43 @@ export default async function TechnicalPage({ params }: Props) {
         <MetricCard title="Volatilitas Tahunan" value={vol != null ? `${vol.toFixed(1)}%` : '-'} icon={<AlertTriangle className="h-5 w-5" />} />
         <MetricCard title="Max Drawdown (1 thn)" value={dd != null ? `${dd.toFixed(1)}%` : '-'} icon={<TrendingDown className="h-5 w-5" />} />
       </div>
+
+      {/* TECH-03: Relative Strength vs IHSG */}
+      {rs.length > 0 && (
+        <Card>
+          <CardHeader title="Relative Strength vs IHSG" description="Return saham dikurangi return IHSG pada periode yang sama — positif berarti outperform" />
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
+                    <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">PERIODE</th>
+                    <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">{tickerUpper}</th>
+                    <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">IHSG</th>
+                    <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">SELISIH</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rs.map(r => (
+                    <tr key={r.period} className="border-b border-gray-100 dark:border-gray-700 last:border-0">
+                      <td className="py-2 text-gray-700 dark:text-gray-300">{r.period}</td>
+                      <td className={`py-2 font-medium ${r.stock >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {r.stock >= 0 ? '+' : ''}{r.stock.toFixed(2)}%
+                      </td>
+                      <td className={`py-2 ${r.ihsg >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {r.ihsg >= 0 ? '+' : ''}{r.ihsg.toFixed(2)}%
+                      </td>
+                      <td className={`py-2 font-semibold ${r.diff >= 0 ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
+                        {r.diff >= 0 ? '+' : ''}{r.diff.toFixed(2)}% {r.diff >= 0 ? '(outperform)' : '(underperform)'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         {/* Trend & MA */}

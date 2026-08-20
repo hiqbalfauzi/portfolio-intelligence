@@ -1,7 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { Card, CardHeader, CardContent } from '@/components/Card'
 import { AccountDangerZone } from '@/components/AccountDangerZone'
-import { User, Settings as SettingsIcon, TrendingUp, Shield, Clock } from 'lucide-react'
+import { PreferencesForm } from '@/components/PreferencesForm'
+import { User } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,42 +23,6 @@ export default async function SettingsPage() {
   const preferences = user?.preferences
   const portfolios = user?.portfolios || []
   const totalPositions = portfolios.reduce((sum, p) => sum + p._count.positions, 0)
-
-  const horizonLabel = (horizon?: string) => {
-    switch (horizon) {
-      case 'short-term': return 'Jangka Pendek (< 1 tahun)'
-      case 'medium-term': return 'Jangka Menengah (1-3 tahun)'
-      case 'long-term': return 'Jangka Panjang (> 3 tahun)'
-      default: return 'Belum diatur'
-    }
-  }
-
-  const riskLabel = (risk?: string) => {
-    switch (risk) {
-      case 'conservative': return 'Konservatif'
-      case 'moderate': return 'Moderat'
-      case 'aggressive': return 'Agresif'
-      default: return 'Belum diatur'
-    }
-  }
-
-  const riskColor = (risk?: string) => {
-    switch (risk) {
-      case 'conservative': return 'text-green-600 dark:text-green-400'
-      case 'moderate': return 'text-yellow-600 dark:text-yellow-400'
-      case 'aggressive': return 'text-red-600 dark:text-red-400'
-      default: return 'text-gray-500'
-    }
-  }
-
-  const analysisLabel = (style?: string) => {
-    switch (style) {
-      case 'fundamental': return 'Fundamental'
-      case 'technical': return 'Teknikal'
-      case 'balanced': return 'Seimbang'
-      default: return 'Belum diatur'
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -85,55 +50,22 @@ export default async function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Investment Profile */}
+      {/* Investment Profile — ACC-02/03: editable */}
       <Card>
         <CardHeader title="Profil Investasi" description="Preferensi dan gaya investasi Anda" />
         <CardContent>
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Clock className="h-4 w-4 text-gray-500" />
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Horizon Investasi</p>
-                </div>
-                <p className="text-lg text-gray-900 dark:text-gray-100">
-                  {horizonLabel(preferences?.horizon)}
-                </p>
-              </div>
-
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Shield className="h-4 w-4 text-gray-500" />
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Toleransi Risiko</p>
-                </div>
-                <p className={`text-lg ${riskColor(preferences?.riskTolerance)}`}>
-                  {riskLabel(preferences?.riskTolerance)}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="h-4 w-4 text-gray-500" />
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Gaya Analisis</p>
-                </div>
-                <p className="text-lg text-gray-900 dark:text-gray-100">
-                  {analysisLabel(preferences?.analysisStyle)}
-                </p>
-              </div>
-
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <SettingsIcon className="h-4 w-4 text-gray-500" />
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Benchmark</p>
-                </div>
-                <p className="text-lg text-gray-900 dark:text-gray-100">
-                  {preferences?.benchmark || 'IHSG'}
-                </p>
-              </div>
-            </div>
-          </div>
+          <PreferencesForm
+            initial={preferences ? {
+              horizon: preferences.horizon,
+              riskTolerance: preferences.riskTolerance,
+              benchmark: preferences.benchmark,
+              analysisStyle: preferences.analysisStyle,
+              currency: preferences.currency,
+              emailNotifications: preferences.emailNotifications,
+              quietHoursStart: preferences.quietHoursStart,
+              quietHoursEnd: preferences.quietHoursEnd,
+            } : null}
+          />
         </CardContent>
       </Card>
 

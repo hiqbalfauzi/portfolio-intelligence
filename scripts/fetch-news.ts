@@ -48,22 +48,23 @@ async function fetchTickerNews(ticker: string, companyName: string): Promise<Rss
 }
 
 // Klasifikasi sentimen batch: satu LLM call per ticker (hemat rate limit)
-async function classifySentiment(ticker: string, titles: string[]): Promise<Map<string, { sentiment: string; materiality: string }>> {
+async function classifySentiment(ticker: string, titles: string[]): Promise<Map<string, { sentiment: string; materiality: string; reason: string }>> {
   const baseUrl = process.env.AI_BASE_URL
   const apiKey = process.env.AI_API_KEY
   const model = process.env.AI_MODEL || 'deepseek/deepseek-v4-flash-0731'
-  const out = new Map<string, { sentiment: string; materiality: string }>()
+  const out = new Map<string, { sentiment: string; materiality: string; reason: string }>()
   if (!baseUrl || !apiKey || titles.length === 0) return out
 
   const list = titles.map((t, i) => `${i + 1}. ${t}`).join('\n')
   const prompt = `Anda analis berita saham Indonesia. Untuk saham ${ticker}, klasifikasikan setiap judul berita berikut.
 
 Balas HANYA JSON array tanpa teks lain, format:
-[{"i": 1, "sentiment": "POSITIVE|NEGATIVE|NEUTRAL", "materiality": "HIGH|MEDIUM|LOW"}]
+[{"i": 1, "sentiment": "POSITIVE|NEGATIVE|NEUTRAL", "materiality": "HIGH|MEDIUM|LOW", "reason": "alasan singkat maks 15 kata"}]
 
 Aturan:
 - sentiment: dampak judul terhadap harga/prospek ${ticker}.
 - materiality: HIGH jika menyangkut laba, dividen, aksi korporasi, regulasi besar; LOW jika berita umum/opini.
+- reason: jelaskan MENGAPA klasifikasi tersebut diberikan (NEWS-06), dalam Bahasa Indonesia, maksimal 15 kata.
 - Jika ragu, pilih NEUTRAL dan LOW.
 
 JUDUL:
@@ -86,12 +87,13 @@ ${list}`
     const content: string = data.choices?.[0]?.message?.content || ''
     const jsonMatch = /\[[\s\S]*\]/.exec(content)
     if (!jsonMatch) throw new Error('Jawaban bukan JSON array')
-    const arr = JSON.parse(jsonMatch[0]) as Array<{ i: number; sentiment: string; materiality: string }>
+    const arr = JSON.parse(jsonMatch[0]) as Array<{ i: number; sentiment: string; materiality: string; reason?: string }>
     for (const a of arr) {
       if (a.i >= 1 && a.i <= titles.length) {
         out.set(titles[a.i - 1], {
           sentiment: ['POSITIVE', 'NEGATIVE', 'NEUTRAL'].includes(a.sentiment) ? a.sentiment : 'NEUTRAL',
           materiality: ['HIGH', 'MEDIUM', 'LOW'].includes(a.materiality) ? a.materiality : 'LOW',
+          reason: typeof a.reason === 'string' ? a.reason.slice(0, 200) : '',
         })
       }
     }
@@ -123,7 +125,7 @@ async function main() {
 
       // Klasifikasi sentimen batch (maks 12 judul per call)
       const titles = fresh.slice(0, 12).map(i => i.title)
-      let cls = new Map<string, { sentiment: string; materiality: string }>()
+      let cls = new Map<string, { sentiment: string; materiality: string; reason: string }>()
       try {
         cls = await classifySentiment(sec.ticker, titles)
       } catch (e) {
@@ -140,6 +142,7 @@ async function main() {
             publishedAt: it.pubDate,
             sentiment: c?.sentiment ?? null,
             materiality: c?.materiality ?? null,
+            sentimentReason: c?.reason || null,
           },
         })
         await prisma.newsArticleSecurity.create({

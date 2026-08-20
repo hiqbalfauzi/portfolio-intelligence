@@ -35,6 +35,8 @@ interface FundamentalData {
   incomeStatements: StatementPeriod[]
   balanceSheets: StatementPeriod[]
   metrics: Record<string, MetricEntry>
+  materialChanges: Array<{ metric: string; prev: number; curr: number; change: string; note: string }>
+  sectorMetrics: Array<{ label: string; value: string; note: string }>
   dataSource: string
   fetchedAt: string
 }
@@ -190,6 +192,61 @@ export default function FundamentalPage() {
           {data.security.lastUpdate && <> · Harga terakhir diperbarui: {new Date(data.security.lastUpdate).toLocaleString('id-ID')}</>}
         </span>
       </div>
+
+      {/* FUND-05: Perubahan Material */}
+      {data.materialChanges.length > 0 && (
+        <Card>
+          <CardHeader
+            title="Perubahan Material"
+            description="Threshold: pendapatan ±10%, laba ±15%, net margin ±2 pp vs periode sebelumnya"
+          />
+          <CardContent>
+            <div className="space-y-2">
+              {data.materialChanges.map((c, i) => {
+                const positive = c.change.startsWith('+')
+                return (
+                  <div key={i} className={`rounded-lg border p-3 ${
+                    positive
+                      ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20'
+                      : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <p className={`text-sm font-medium flex items-center gap-2 ${
+                        positive ? 'text-green-800 dark:text-green-400' : 'text-red-800 dark:text-red-400'
+                      }`}>
+                        {positive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                        {c.metric}: {c.change}
+                      </p>
+                    </div>
+                    <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">{c.note}</p>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* FUND-04: Metrik Sector-Aware */}
+      {data.sectorMetrics.length > 0 && (
+        <Card>
+          <CardHeader
+            title={`Metrik Sektor (${data.security.sector})`}
+            description="Metrik tambahan sesuai karakter sektor — data yang tidak tersedia dinyatakan apa adanya"
+          />
+          <CardContent>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {data.sectorMetrics.map(sm => (
+                <div key={sm.label} className="rounded-lg bg-gray-50 dark:bg-gray-800/50 p-4">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{sm.label}</p>
+                  <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">{sm.value}</p>
+                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{sm.note}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Key Ratios */}
       <Card>

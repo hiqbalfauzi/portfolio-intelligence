@@ -93,6 +93,9 @@ async function main() {
           sellingGeneralAdministrative: raw(stmt.sellingGeneralAdministrative),
           researchDevelopment: raw(stmt.researchDevelopment),
           otherOperatingExpenses: raw(stmt.otherOperatingExpenses),
+          // FUND-04: bank-specific lines (sering tersedia untuk emiten Financials)
+          interestIncome: raw(stmt.interestIncome),
+          interestExpense: raw(stmt.interestExpense),
         }
         await prisma.financialStatement.upsert({
           where: {

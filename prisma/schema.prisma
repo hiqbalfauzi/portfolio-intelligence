@@ -321,6 +321,7 @@ model NewsArticle {
   // Classification
   sentiment   String?  // POSITIVE, NEGATIVE, NEUTRAL
   materiality String?  // HIGH, MEDIUM, LOW
+  sentimentReason String? // NEWS-06: alasan klasifikasi sentimen dari AI
   topics      String?  // JSON array of topics
   
   // Timing
@@ -711,4 +712,16 @@ model WatchlistItem {
   isActive    Boolean  @default(true)
   
   @@unique([userId, securityId])
+}
+
+// AI-09: feedback pengguna atas jawaban AI
+model AIFeedback {
+  id          String   @id @default(cuid())
+  userId      String
+  question    String
+  answer      String
+  feedback    String   // correct, incorrect, incomplete, irrelevant
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
 }

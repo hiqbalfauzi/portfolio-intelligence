@@ -90,6 +90,12 @@ export default async function NewsPage() {
                         )}
                         <span className="text-xs text-gray-500 dark:text-gray-400">{a.source} · {fmtDate(a.publishedAt)}</span>
                       </div>
+                      {/* NEWS-06: alasan klasifikasi sentimen */}
+                      {a.sentimentReason && (
+                        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 italic">
+                          Alasan klasifikasi: {a.sentimentReason}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

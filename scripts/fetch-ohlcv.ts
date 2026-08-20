@@ -48,12 +48,22 @@ function parseChart(result: any): ChartBar[] {
 async function main() {
   console.log(`📡 Fetching OHLCV (range=${RANGE}) from Yahoo Finance...\n`)
   const cookie = await getCookie()
+
+  // TECH-03: ensure benchmark IHSG (^JKSE) exists as a security for relative strength
+  const ihsg = await prisma.security.findUnique({ where: { ticker: 'IHSG' } })
+  if (!ihsg) {
+    await prisma.security.create({
+      data: { ticker: 'IHSG', name: 'Indeks Harga Saham Gabungan', sector: 'Index', description: 'Benchmark index — bukan saham' },
+    })
+  }
+
   const securities = await prisma.security.findMany({ where: { isActive: true } })
   console.log(`Found ${securities.length} securities\n`)
 
   let ok = 0
   for (const sec of securities) {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sec.ticker}.JK?range=${RANGE}&interval=1d&includeAdjustedClose=true`
+    const yahooSymbol = sec.ticker === 'IHSG' ? '^JKSE' : `${sec.ticker}.JK`
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?range=${RANGE}&interval=1d&includeAdjustedClose=true`
     try {
       const res = await fetch(url, { headers: { 'User-Agent': UA, Cookie: cookie } })
       const json = await res.json()
