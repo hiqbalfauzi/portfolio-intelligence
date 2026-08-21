@@ -48,26 +48,32 @@ async function fetchTickerNews(ticker: string, companyName: string): Promise<Rss
 }
 
 // Klasifikasi sentimen batch: satu LLM call per ticker (hemat rate limit)
-async function classifySentiment(ticker: string, titles: string[]): Promise<Map<string, { sentiment: string; materiality: string; reason: string }>> {
+async function classifySentiment(ticker: string, titles: string[], sources: string[]): Promise<Map<string, { sentiment: string; materiality: string; reason: string; sourceType?: string }>> {
   const baseUrl = process.env.AI_BASE_URL
   const apiKey = process.env.AI_API_KEY
   const model = process.env.AI_MODEL || 'deepseek/deepseek-v4-flash-0731'
-  const out = new Map<string, { sentiment: string; materiality: string; reason: string }>()
+  const out = new Map<string, { sentiment: string; materiality: string; reason: string; sourceType?: string }>()
   if (!baseUrl || !apiKey || titles.length === 0) return out
 
-  const list = titles.map((t, i) => `${i + 1}. ${t}`).join('\n')
-  const prompt = `Anda analis berita saham Indonesia. Untuk saham ${ticker}, klasifikasikan setiap judul berita berikut.
-
+  const list = titles.map((t, i) => `${i + 1}. [${sources[i]}] ${t}`).join('\n')
+  const prompt = `Anda analis berita saham Indonesia. Untuk saham ${ticker}, klasifikasikan setiap judul dan sumber berita berikut.
+  
 Balas HANYA JSON array tanpa teks lain, format:
-[{"i": 1, "sentiment": "POSITIVE|NEGATIVE|NEUTRAL", "materiality": "HIGH|MEDIUM|LOW", "reason": "alasan singkat maks 15 kata"}]
+[{"i": 1, "sentiment": "POSITIVE|NEGATIVE|NEUTRAL", "materiality": "HIGH|MEDIUM|LOW", "reason": "alasan singkat maks 15 kata", "sourceType": "OFFICIAL_DISCLOSURE|NEWS|OPINION|RUMOR"}]
 
 Aturan:
 - sentiment: dampak judul terhadap harga/prospek ${ticker}.
 - materiality: HIGH jika menyangkut laba, dividen, aksi korporasi, regulasi besar; LOW jika berita umum/opini.
 - reason: jelaskan MENGAPA klasifikasi tersebut diberikan (NEWS-06), dalam Bahasa Indonesia, maksimal 15 kata.
-- Jika ragu, pilih NEUTRAL dan LOW.
+- sourceType: BEDAKAN sumber berita (NEWS-05):
+  * OFFICIAL_DISCLOSURE: jika URL/domain berasal dari IDX/ke keterbukaan informasi resmi emiten (contoh: idx.co.id, company website official disclosure section)
+  * NEWS: media berita tepercaya (Kompas, Bloomberg, Reuters, dll)
+  * OPINION: artikel opinion column, analyst commentary, atau blog pendapat
+  * RUMOR: forum, thread tidak jelas, sumber tidak terverifikasi, headline provokatif tanpa sumber
+- Jika ragu tentang sourceType, pilih NEWS sebagai default.
+- Jika ragu soal sentiment/materiality, pilih NEUTRAL dan LOW.
 
-JUDUL:
+JUDUL + SUMBER:
 ${list}`
 
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -123,11 +129,12 @@ async function main() {
       }
       if (fresh.length === 0) { console.log(`  semua sudah ada`); await sleep(1000); continue }
 
-      // Klasifikasi sentimen batch (maks 12 judul per call)
+      // Klasifikasi sentimen batch (maks 12 judul per call) + source type classification
       const titles = fresh.slice(0, 12).map(i => i.title)
-      let cls = new Map<string, { sentiment: string; materiality: string; reason: string }>()
+      const sources = fresh.slice(0, 12).map(i => i.source)
+      let cls = new Map<string, { sentiment: string; materiality: string; reason: string; sourceType?: string }>()
       try {
-        cls = await classifySentiment(sec.ticker, titles)
+        cls = await classifySentiment(sec.ticker, titles, sources)
       } catch (e) {
         console.log(`  ⚠ klasifikasi gagal: ${(e as Error).message} — simpan tanpa sentimen`)
       }
@@ -140,6 +147,7 @@ async function main() {
             source: it.source,
             sourceUrl: it.link,
             publishedAt: it.pubDate,
+            sourceType: c?.sourceType ?? null, // NEWS-05: source type classification
             sentiment: c?.sentiment ?? null,
             materiality: c?.materiality ?? null,
             sentimentReason: c?.reason || null,

@@ -27,13 +27,19 @@ export default async function NewsPage() {
   }
   const sentimentLabel = (s: string | null) =>
     ({ POSITIVE: 'Positif', NEGATIVE: 'Negatif', NEUTRAL: 'Netral' } as Record<string, string>)[s ?? ''] || 'Belum diklasifikasi'
-  const materialityBadge = (m: string | null) => {
-    switch (m) {
-      case 'HIGH': return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-      case 'MEDIUM': return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
-      default: return 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+  
+  // NEWS-05: Source type badges
+  const sourceTypeBadge = (t: string | null) => {
+    switch (t) {
+      case 'OFFICIAL_DISCLOSURE': return 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-700'
+      case 'NEWS': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-700'
+      case 'OPINION': return 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-700'
+      case 'RUMOR': return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-700'
+      default: return 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
     }
   }
+  const sourceTypeLabel = (t: string | null) => 
+    ({ OFFICIAL_DISCLOSURE: 'Keterbukaan Resmi', NEWS: 'Berita', OPINION: 'Opini', RUMOR: 'Rumor' } as Record<string, string>)[t ?? ''] || ''
 
   const fmtDate = (d: Date) => d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
   const lastFetched = articles.length > 0 ? articles.reduce((a, b) => (a.fetchedAt > b.fetchedAt ? a : b)).fetchedAt : null
@@ -84,9 +90,13 @@ export default async function NewsPage() {
                             {s.security.ticker}
                           </span>
                         ))}
+                        {/* NEWS-05: Source type badge */}
+                        {a.sourceType && (
+                          <span className={`text-xs px-2 py-0.5 rounded ${sourceTypeBadge(a.sourceType)} border`}>{sourceTypeLabel(a.sourceType)}</span>
+                        )}
                         <span className={`text-xs px-2 py-0.5 rounded ${sentimentBadge(a.sentiment)}`}>{sentimentLabel(a.sentiment)}</span>
                         {a.materiality && (
-                          <span className={`text-xs px-2 py-0.5 rounded ${materialityBadge(a.materiality)}`}>Materialitas {a.materiality}</span>
+                          <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">Materialitas {a.materiality}</span>
                         )}
                         <span className="text-xs text-gray-500 dark:text-gray-400">{a.source} · {fmtDate(a.publishedAt)}</span>
                       </div>

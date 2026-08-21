@@ -319,6 +319,7 @@ model NewsArticle {
   author      String?
   
   // Classification
+  sourceType  String?  // OFFICIAL_DISCLOSURE, NEWS, OPINION, RUMOR - NEWS-05
   sentiment   String?  // POSITIVE, NEGATIVE, NEUTRAL
   materiality String?  // HIGH, MEDIUM, LOW
   sentimentReason String? // NEWS-06: alasan klasifikasi sentimen dari AI
