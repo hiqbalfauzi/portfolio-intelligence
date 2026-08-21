@@ -32,12 +32,13 @@ export default function TransactionsPage() {
   const [error, setError] = useState('')
   const [formData, setFormData] = useState({
     portfolioId: '',
-    type: 'BUY' as 'BUY' | 'SELL',
+    type: 'BUY' as 'BUY' | 'SELL' | 'DIVIDEND',
     ticker: '',
     date: new Date().toISOString().split('T')[0],
     quantity: 0,
     price: 0,
     fee: 0,
+    tax: 0,
     notes: ''
   })
 
@@ -76,10 +77,26 @@ export default function TransactionsPage() {
 
   const handleAddTransaction = async () => {
     setError('')
-    if (!formData.ticker || formData.quantity <= 0 || formData.price <= 0) {
-      setError('Mohon lengkapi ticker, jumlah lot, dan harga')
+    
+    // Validation: BUY/SELL butuh quantity+price, DIVIDEND cuma butuh amount
+    if (!formData.ticker) {
+      setError('Mohon lengkapi ticker')
       return
     }
+    
+    if (formData.type === 'DIVIDEND') {
+      if (formData.price <= 0) {
+        setError('Mohon lengkapi nominal dividen')
+        return
+      }
+    } else {
+      // BUY or SELL
+      if (formData.quantity <= 0 || formData.price <= 0) {
+        setError('Mohon lengkapi jumlah lot dan harga')
+        return
+      }
+    }
+    
     setSaving(true)
     try {
       await submitTransaction({ ...formData, ticker: formData.ticker.toUpperCase() })
@@ -91,6 +108,7 @@ export default function TransactionsPage() {
         quantity: 0,
         price: 0,
         fee: 0,
+        tax: 0,
         notes: ''
       })
       setShowForm(false)
@@ -102,7 +120,7 @@ export default function TransactionsPage() {
     }
   }
 
-  const handleImportCSV = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportCSV = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
 
@@ -118,30 +136,54 @@ export default function TransactionsPage() {
       for (let i = 0; i < dataLines.length; i++) {
         const cols = dataLines[i].split(',').map(col => col.trim())
         if (cols.length < 5) continue
-
+        
         const type = cols[0].toUpperCase()
         const ticker = cols[1].toUpperCase()
         const date = cols[2]
         const quantity = parseInt(cols[3])
         const price = parseFloat(cols[4])
         const fee = cols[5] ? parseFloat(cols[5]) : 0
-        const notes = cols[6] || ''
-
-        if (!['BUY', 'SELL'].includes(type)) {
-          errors.push(`Baris ${i + 2}: tipe "${type}" belum didukung (hanya BUY/SELL)`)
+        const tax = cols[6] && type !== 'DIVIDEND' ? parseFloat(cols[6]) : 0 // DIVIDEND pakai field tax untuk nominal
+        const notes = cols[7] || ''
+        
+        // Support BUY, SELL, and DIVIDEND
+        if (!['BUY', 'SELL', 'DIVIDEND'].includes(type)) {
+          errors.push(`Baris ${i + 2}: tipe "${type}" belum didukung (hanya BUY/SELL/DIVIDEND)`)
           continue
         }
-        if (!ticker || !date || !(quantity > 0) || !(price > 0)) {
+        
+        // Validation: DIVIDEND cuma butuh amount (di kolom price/tax), BUY/SELL butuh qty+price
+        if (!ticker || !date) {
           errors.push(`Baris ${i + 2}: data tidak valid`)
           continue
         }
-
-        try {
-          await submitTransaction({ type, ticker, date, quantity, price, fee, notes })
-          success++
-        } catch (err) {
-          errors.push(`Baris ${i + 2} (${ticker}): ${err instanceof Error ? err.message : 'gagal'}`)
+        
+        if (type === 'DIVIDEND') {
+          if (!(price > 0)) {
+            errors.push(`Baris ${i + 2}: nominal dividen harus diisi`)
+            continue
+          }
+          // For DIVIDEND: price column = dividend amount, tax column ignored
+          try {
+            await submitTransaction({ type, ticker, date, quantity: 0, price, fee: 0, notes })
+          } catch (err) {
+            errors.push(`Baris ${i + 2} (${ticker}): ${err instanceof Error ? err.message : 'gagal'}`)
+            continue
+          }
+        } else {
+          // BUY or SELL
+          if (!(quantity > 0) || !(price > 0)) {
+            errors.push(`Baris ${i + 2}: data tidak valid`)
+            continue
+          }
+          try {
+            await submitTransaction({ type, ticker, date, quantity, price, fee, notes })
+          } catch (err) {
+            errors.push(`Baris ${i + 2} (${ticker}): ${err instanceof Error ? err.message : 'gagal'}`)
+            continue
+          }
         }
+        success++
       }
 
       setShowImport(false)
@@ -158,9 +200,10 @@ export default function TransactionsPage() {
   }
 
   const downloadTemplate = () => {
-    const template = `Type,Ticker,Date,Quantity,Price,Fee,Notes
-BUY,BBCA,2024-01-15,10,9500,10000,
-SELL,BMRI,2024-01-20,5,8700,8000,Take profit`
+    const template = `Type,Ticker,Date,Quantity,Price,Fee,Tax,Notes
+BUY,BBCA,2024-01-15,10,9500,10000,,
+SELL,BMRI,2024-01-20,5,8700,8000,,Take profit
+DIVIDEND,BBBCA,2024-03-15,0,50,0,,Dividen tunai Rp 50/lembar`
     const blob = new Blob([template], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -247,11 +290,12 @@ SELL,BMRI,2024-01-20,5,8700,8000,Take profit`
                   </label>
                   <select
                     value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value as 'BUY' | 'SELL' })}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value as 'BUY' | 'SELL' | 'DIVIDEND' })}
                     className="w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                   >
                     <option value="BUY">Beli</option>
                     <option value="SELL">Jual</option>
+                    <option value="DIVIDEND">Dividen</option>
                   </select>
                 </div>
 
@@ -405,15 +449,19 @@ SELL,BMRI,2024-01-20,5,8700,8000,Take profit`
                   Format CSV yang didukung:
                 </p>
                 <code className="text-xs text-blue-800 dark:text-blue-400 block mb-2">
-                  Type,Ticker,Date,Quantity,Price,Fee,Notes
+                  Type,Ticker,Date,Quantity,Price,Fee,Tax,Notes
                 </code>
                 <p className="text-xs text-blue-700 dark:text-blue-400">
-                  Type: BUY atau SELL<br/>
+                  Type: BUY, SELL, atau DIVIDEND<br/>
                   Date: Format YYYY-MM-DD<br/>
-                  Quantity: Jumlah lot<br/>
-                  Price: Harga per lembar<br/>
+                  Quantity: Jumlah lot (untuk BUY/SELL)<br/>
+                  Price: Harga per lembar (untuk BUY/SELL), atau nominal (untuk DIVIDEND)<br/>
                   Fee: Fee transaksi (opsional)<br/>
+                  Tax: Pajak dividen (opsional)<br/>
                   Notes: Catatan (opsional)
+                </p>
+                <p className="text-xs text-blue-600 dark:text-blue-500 mt-2 italic">
+                  Catatan: Untuk DIVIDEND, kolom Quantity diabaikan dan Type harus "DIVIDEND"
                 </p>
               </div>
 
