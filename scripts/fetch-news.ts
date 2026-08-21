@@ -9,6 +9,21 @@ const prisma = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: path.j
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 const MAX_AGE_DAYS = 30 // NEWS-08: berita lama tidak boleh tampil sebagai baru
 
+// NEWS-02: normalisasi judul untuk dedup berbasis kemiripan
+const STOPWORDS = new Set(['yang', 'dan', 'di', 'ke', 'dari', 'untuk', 'pada', 'dengan', 'ini', 'itu', 'adalah', 'akan', 'telah', 'sudah', 'juga', 'atau', 'dalam', 'terhadap', 'oleh', 'saat', 'usai', 'the', 'a', 'an', 'of', 'to', 'in', 'for'])
+function titleTokens(title: string): Set<string> {
+  return new Set(
+    title.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/)
+      .filter(t => t.length > 1 && !STOPWORDS.has(t))
+  )
+}
+function jaccard(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0
+  let inter = 0
+  for (const t of a) if (b.has(t)) inter++
+  return inter / (a.size + b.size - inter)
+}
+
 interface RssItem { title: string; link: string; pubDate: Date; source: string }
 
 function decodeEntities(s: string): string {
@@ -121,11 +136,22 @@ async function main() {
       console.log(`${sec.ticker}: ${items.length} artikel dari RSS`)
       if (items.length === 0) { await sleep(1000); continue }
 
-      // Dedup: skip yang sudah ada (sourceUrl unique)
+      // Dedup: skip yang sudah ada (sourceUrl unique) + dedup judul mirip (NEWS-02)
       const fresh: RssItem[] = []
+      const recentTitles = (await prisma.newsArticle.findMany({
+        where: { securities: { some: { securityId: sec.id } } },
+        select: { title: true },
+        orderBy: { publishedAt: 'desc' },
+        take: 50,
+      })).map(a => titleTokens(a.title))
       for (const it of items) {
         const exists = await prisma.newsArticle.findUnique({ where: { sourceUrl: it.link } })
-        if (!exists) fresh.push(it)
+        if (exists) continue
+        const tokens = titleTokens(it.title)
+        const isDup = recentTitles.some(t => jaccard(t, tokens) >= 0.6)
+        if (isDup) { console.log(`  ⏭ skip dup judul: ${it.title.slice(0, 60)}...`); continue }
+        fresh.push(it)
+        recentTitles.push(tokens) // cegah dup di dalam batch yang sama
       }
       if (fresh.length === 0) { console.log(`  semua sudah ada`); await sleep(1000); continue }
 

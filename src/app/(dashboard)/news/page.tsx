@@ -18,6 +18,26 @@ export default async function NewsPage() {
     include: { securities: { include: { security: { select: { ticker: true } } } } },
   })
 
+  // NEWS-02: kelompokkan artikel tentang peristiwa yang sama (kemiripan judul)
+  const STOPWORDS = new Set(['yang', 'dan', 'di', 'ke', 'dari', 'untuk', 'pada', 'dengan', 'ini', 'itu', 'adalah', 'akan', 'telah', 'sudah', 'juga', 'atau', 'dalam', 'terhadap', 'oleh', 'saat', 'usai'])
+  const tokens = (t: string) => new Set(
+    t.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(w => w.length > 1 && !STOPWORDS.has(w))
+  )
+  const jaccard = (a: Set<string>, b: Set<string>) => {
+    if (a.size === 0 || b.size === 0) return 0
+    let inter = 0
+    for (const w of a) if (b.has(w)) inter++
+    return inter / (a.size + b.size - inter)
+  }
+  type Article = typeof articles[number]
+  const groups: { primary: Article; others: Article[] }[] = []
+  for (const a of articles) {
+    const aTok = tokens(a.title)
+    const match = groups.find(g => jaccard(tokens(g.primary.title), aTok) >= 0.5)
+    if (match) match.others.push(a)
+    else groups.push({ primary: a, others: [] })
+  }
+
   const sentimentBadge = (s: string | null) => {
     switch (s) {
       case 'POSITIVE': return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
@@ -44,6 +64,46 @@ export default async function NewsPage() {
   const fmtDate = (d: Date) => d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
   const lastFetched = articles.length > 0 ? articles.reduce((a, b) => (a.fetchedAt > b.fetchedAt ? a : b)).fetchedAt : null
 
+  // Render satu artikel (dipakai untuk primary di tiap group)
+  const renderArticle = (a: Article) => (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <a
+          href={a.sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 inline-flex items-start gap-1.5"
+        >
+          <Newspaper className="h-4 w-4 mt-0.5 shrink-0 text-gray-400" />
+          {a.title}
+          <ExternalLink className="h-3 w-3 mt-1 shrink-0 text-gray-400" />
+        </a>
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
+          {a.securities.map(s => (
+            <span key={s.securityId} className="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium">
+              {s.security.ticker}
+            </span>
+          ))}
+          {/* NEWS-05: Source type badge */}
+          {a.sourceType && (
+            <span className={`text-xs px-2 py-0.5 rounded ${sourceTypeBadge(a.sourceType)} border`}>{sourceTypeLabel(a.sourceType)}</span>
+          )}
+          <span className={`text-xs px-2 py-0.5 rounded ${sentimentBadge(a.sentiment)}`}>{sentimentLabel(a.sentiment)}</span>
+          {a.materiality && (
+            <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">Materialitas {a.materiality}</span>
+          )}
+          <span className="text-xs text-gray-500 dark:text-gray-400">{a.source} · {fmtDate(a.publishedAt)}</span>
+        </div>
+        {/* NEWS-06: alasan klasifikasi sentimen */}
+        {a.sentimentReason && (
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 italic">
+            Alasan klasifikasi: {a.sentimentReason}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -66,48 +126,35 @@ export default async function NewsPage() {
       )}
 
       <Card>
-        <CardHeader title="Berita Terbaru" description={`${articles.length} artikel (30 hari terakhir)`} />
+        <CardHeader title="Berita Terbaru" description={`${articles.length} artikel dalam ${groups.length} peristiwa (30 hari terakhir)`} />
         <CardContent>
           {articles.length > 0 ? (
             <div className="space-y-3">
-              {articles.map(a => (
-                <div key={a.id} className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <a
-                        href={a.sourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 inline-flex items-start gap-1.5"
-                      >
-                        <Newspaper className="h-4 w-4 mt-0.5 shrink-0 text-gray-400" />
-                        {a.title}
-                        <ExternalLink className="h-3 w-3 mt-1 shrink-0 text-gray-400" />
-                      </a>
-                      <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        {a.securities.map(s => (
-                          <span key={s.securityId} className="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium">
-                            {s.security.ticker}
-                          </span>
+              {groups.map(g => (
+                <div key={g.primary.id} className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                  {renderArticle(g.primary)}
+                  {/* NEWS-02: artikel lain tentang peristiwa yang sama */}
+                  {g.others.length > 0 && (
+                    <div className="mt-3 border-t border-gray-100 dark:border-gray-700 pt-2">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
+                        {g.others.length} artikel lain tentang peristiwa serupa:
+                      </p>
+                      <div className="space-y-1">
+                        {g.others.map(o => (
+                          <a
+                            key={o.id}
+                            href={o.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-start gap-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+                          >
+                            <ExternalLink className="h-3 w-3 mt-0.5 shrink-0 text-gray-400" />
+                            <span className="min-w-0">{o.title} <span className="text-gray-400">— {o.source}, {fmtDate(o.publishedAt)}</span></span>
+                          </a>
                         ))}
-                        {/* NEWS-05: Source type badge */}
-                        {a.sourceType && (
-                          <span className={`text-xs px-2 py-0.5 rounded ${sourceTypeBadge(a.sourceType)} border`}>{sourceTypeLabel(a.sourceType)}</span>
-                        )}
-                        <span className={`text-xs px-2 py-0.5 rounded ${sentimentBadge(a.sentiment)}`}>{sentimentLabel(a.sentiment)}</span>
-                        {a.materiality && (
-                          <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">Materialitas {a.materiality}</span>
-                        )}
-                        <span className="text-xs text-gray-500 dark:text-gray-400">{a.source} · {fmtDate(a.publishedAt)}</span>
                       </div>
-                      {/* NEWS-06: alasan klasifikasi sentimen */}
-                      {a.sentimentReason && (
-                        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 italic">
-                          Alasan klasifikasi: {a.sentimentReason}
-                        </p>
-                      )}
                     </div>
-                  </div>
+                  )}
                 </div>
               ))}
             </div>
